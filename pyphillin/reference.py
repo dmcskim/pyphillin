@@ -9,7 +9,7 @@ from glob import glob
 
 HOSTNAME = 'ftp.ncbi.nlm.nih.gov'
 USERNAME = 'anonymous'
-PASSWORD = 'dmcskimming@usf.edu'  #make users supply email
+PASSWORD = #make users supply email
 
 def get_assembly_summary():
     #download assembly summary file
