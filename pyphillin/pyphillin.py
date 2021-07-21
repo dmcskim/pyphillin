@@ -13,7 +13,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Create functional profile\
                                      from 16S data")
     #add arguments for abundance table, representative sequences,
-    # additional parameters
+    # additional parameters: % identity
 
     align_sequences()
 
