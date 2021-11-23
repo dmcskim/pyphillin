@@ -15,7 +15,8 @@ def align_sequences(args):
     # - align 16S sequences to reference
     cmd = ['vsearch', '--usearch_global', args.rep_fasta, '--db',\
            SEQUENCE_DB, '--id', str(args.pct_id),\
-           '--top_hits_only', '--blast6out', args.blast_out]
+           '--top_hits_only', '--maxaccepts', '0', '--maxrejects', '0',\
+           '--uc_allhits', '--blast6out', args.blast_out]
     #print(cmd)
     subprocess.call(cmd)
     return
@@ -34,16 +35,32 @@ def profile_functions(args):
     blast_res[1] = [x.split('|')[0] for x in blast_res[1]]
     #print('blast results loaded')
 
+    # get unique mapping of ASV -> reference
+    asv_map = {}
+    asv_cnt = {}
+    for tasv in blast_res.index.unique():
+        ttemp = blast_res.loc[tasv,1]
+        if type(ttemp) == str:
+            asv_map[tasv] = [ttemp]
+        else:
+            asv_map[tasv] = blast_res.loc[tasv,1].unique().tolist()
+        asv_cnt[tasv] = len(asv_map[tasv])
+
     # only keep matched results
-    keep = blast_res.index
+    keep = [x for x in tax_table.columns if x in asv_map.keys()]
     ndata = tax_table[keep]
     aligned_read_cnt = ndata.sum().sum()
+
+    # divide ASV read count by number of top vsearch hits (asv_cnt)
+    tcnt = [asv_cnt[x] for x in ndata.columns]
+    ndata = ndata.div(tcnt)
 
     #print(aligned_read_cnt, total_read_cnt, aligned_read_cnt/total_read_cnt)
     print('Reads used: {0:0.2%}'.format(aligned_read_cnt/total_read_cnt))
 
     # rename to refseq id
-    ndata.columns = blast_res[1]
+    tcols = [asv_map[x] for x in ndata.columns]
+    ndata.columns = tcols
     # sum identical columns
     ndata = ndata.groupby(ndata.columns, axis=1).sum()
     # divide by 16S copy number
