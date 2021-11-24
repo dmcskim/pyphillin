@@ -38,6 +38,7 @@ def profile_functions(args):
     # get unique mapping of ASV -> reference
     asv_map = {}
     asv_cnt = {}
+    all_cnt = 0
     for tasv in blast_res.index.unique():
         ttemp = blast_res.loc[tasv,1]
         if type(ttemp) == str:
@@ -45,6 +46,7 @@ def profile_functions(args):
         else:
             asv_map[tasv] = blast_res.loc[tasv,1].unique().tolist()
         asv_cnt[tasv] = len(asv_map[tasv])
+        all_cnt += len(asv_map[tasv])
 
     # only keep matched results
     keep = [x for x in tax_table.columns if x in asv_map.keys()]
@@ -59,25 +61,39 @@ def profile_functions(args):
     print('Reads used: {0:0.2%}'.format(aligned_read_cnt/total_read_cnt))
 
     # rename to refseq id
-    tcols = [asv_map[x] for x in ndata.columns]
-    ndata.columns = tcols
+    # ** Make empty table using all_cnt (# of columns needed)
+    # ** For each ASV in ndata.columns, make duplicate of column and apply
+    #    asv_map column labels
+    #tcols = [asv_map[x] for x in ndata.columns]
+    #ndata.columns = tcols
+    tdata = pd.DataFrame()
+    tcols = []
+    ti = 0
+    for asv,taxa in asv_map.items():
+        for tax in taxa:
+            tdata[ti] = ndata[asv]
+            tcols.append(tax)
+            ti += 1
+    tdata.columns = tcols
+    tdata.index = ndata.index
+
     # sum identical columns
-    ndata = ndata.groupby(ndata.columns, axis=1).sum()
+    tdata = tdata.groupby(tdata.columns, axis=1).sum()
     # divide by 16S copy number
-    cn = copy_num.loc[ndata.columns].values.T[0]
-    ndata = ndata.div(cn)
+    cn = copy_num.loc[tdata.columns].values.T[0]
+    tdata = tdata.div(cn)
     # multiply by KEGG profile table
-    kegg_data = kegg_profiles.loc[ndata.columns]
+    kegg_data = kegg_profiles.loc[tdata.columns]
     kegg_data.fillna(0, inplace=True)
-    results = ndata.dot(kegg_data)
+    results = jdata.dot(kegg_data)
     # save results
     results.to_csv(args.out, index=True, sep='\t')
 
     # get full results
     fsamps, ftaxa, fabund, fkegg = [], [], [], []
-    tdata = ndata.copy()
-    tdata['sample'] = tdata.index
-    tmelt = pd.melt(tdata, id_vars='sample', var_name='taxa',\
+    ttdata = tdata.copy()
+    ttdata['sample'] = ttdata.index
+    tmelt = pd.melt(ttdata, id_vars='sample', var_name='taxa',\
                     value_name='abundance')
     for i in tmelt.index:
         samp = tmelt.loc[i, 'sample']
