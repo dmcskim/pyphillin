@@ -13,15 +13,18 @@ SEQUENCE_DB = pkg_resources.resource_filename(__name__,\
 
 def align_sequences(args):
     # - align 16S sequences to reference
+    print('Aligning sequences.')
     cmd = ['vsearch', '--usearch_global', args.rep_fasta, '--db',\
            SEQUENCE_DB, '--id', str(args.pct_id),\
            '--top_hits_only', '--maxaccepts', '0', '--maxrejects', '0',\
            '--uc_allhits', '--blast6out', args.blast_out]
     #print(cmd)
     subprocess.call(cmd)
+    print('Sequences aligned.')
     return
 
 def profile_functions(args):
+    print('Profiling functions.')
     # needs bug abundances per sample, K and 16S abundances per bug
     #   replace sequences with functional profiles using formula
     tax_table = pd.read_csv(args.tax_table, sep='\t', index_col=0)
@@ -85,7 +88,7 @@ def profile_functions(args):
     # multiply by KEGG profile table
     kegg_data = kegg_profiles.loc[tdata.columns]
     kegg_data.fillna(0, inplace=True)
-    results = jdata.dot(kegg_data)
+    results = tdata.dot(kegg_data)
     # save results
     results.to_csv(args.out, index=True, sep='\t')
 
@@ -112,6 +115,7 @@ def profile_functions(args):
                                  'KEGG_ID':fkegg,\
                                  'abundance':fabund})
     full_results.to_csv(args.full_out, index=True, sep='\t')
+    print('Functions profiled.')
     return 
 
 def main():
