@@ -124,6 +124,7 @@ def main():
                         format.")
     parser.add_argument("--out", help="Outfile for functional profile.",\
                        default="pyphillin_results.tsv")
+    parser.add_argument("--blast_in", help="Infile for blast results.")
     parser.add_argument("--blast_out", help="Outfile for blast results.",\
                        default="blast_results.tsv")
     parser.add_argument("--full_out", help="Outfile for full results.",\
@@ -133,7 +134,10 @@ def main():
     args = parser.parse_args()
 
     #align sequences
-    align_sequences(args)
+    if args.blast_in is None:
+        align_sequences(args)
+    else:
+        args.blast_out = args.blast_in
 
     #create functional profile
     profile_functions(args)
