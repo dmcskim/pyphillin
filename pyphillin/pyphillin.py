@@ -3,6 +3,9 @@ import argparse
 import subprocess
 import gzip
 import pkg_resources
+import faulthandler
+
+faulthandler.enable()
 
 COPY_NUMBER_FILE = pkg_resources.resource_filename(__name__,\
                     'data/pyphillin_16S_copy_number.tsv.gz')
@@ -92,29 +95,30 @@ def profile_functions(args):
     # save results
     results.to_csv(args.out, index=True, sep='\t')
 
-    # get full results
-    fsamps, ftaxa, fabund, fkegg = [], [], [], []
-    ttdata = tdata.copy()
-    ttdata['sample'] = ttdata.index
-    tmelt = pd.melt(ttdata, id_vars='sample', var_name='taxa',\
-                    value_name='abundance')
-    for i in tmelt.index:
-        samp = tmelt.loc[i, 'sample']
-        taxa = tmelt.loc[i, 'taxa']
-        abund = tmelt.loc[i, 'abundance']
-        kdata = kegg_data.loc[taxa]
-        tkdat = list(abund*kdata.values)
-        cnum = kdata.shape[0]
-        fsamps += [samp]*cnum
-        ftaxa += [taxa]*cnum
-        fabund += tkdat
-        fkegg += list(kdata.index)
-    #store in dataframe and save
-    full_results = pd.DataFrame({'samples':fsamps,\
-                                 'features':ftaxa,\
-                                 'KEGG_ID':fkegg,\
-                                 'abundance':fabund})
-    full_results.to_csv(args.full_out, index=True, sep='\t')
+    if args.full_out is not None:
+        # get full results
+        fsamps, ftaxa, fabund, fkegg = [], [], [], []
+        ttdata = tdata.copy()
+        ttdata['sample'] = ttdata.index
+        tmelt = pd.melt(ttdata, id_vars='sample', var_name='taxa',\
+                        value_name='abundance')
+
+        # inline I/O to conserve memory
+        ohand = open(args.full_out, 'w')
+        ohand.write('\t'.join(['Sample', 'Taxonomy', 'Abundance', 'KEGG_ID'])+'\n')
+
+        for i in tmelt.index:
+            samp = tmelt.loc[i, 'sample']
+            taxa = tmelt.loc[i, 'taxa']
+            abund = tmelt.loc[i, 'abundance']
+            kdata = kegg_data.loc[taxa]
+            for key,value in zip(list(kdata.index), list(abund*kdata.values)):
+                if value > 0:
+                    ohand.write('\t'.join([samp, taxa, str(round(value, 2)), key])+'\n')
+
+        ohand.close()
+
+    #closing message
     print('Functions profiled.')
     return 
 
@@ -132,7 +136,7 @@ def main():
     parser.add_argument("--blast_out", help="Outfile for blast results.",\
                        default="blast_results.tsv")
     parser.add_argument("--full_out", help="Outfile for full results.",\
-                       default="full_results.tsv")
+                       default=None)
     parser.add_argument("-pid", "--pct_id", help="Percent identity cutoff.",\
                        default=0.97, type=float)
     args = parser.parse_args()
